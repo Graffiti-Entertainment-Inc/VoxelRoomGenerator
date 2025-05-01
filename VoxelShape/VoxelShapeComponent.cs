@@ -42,7 +42,7 @@ namespace GraffitiEntertainment.VoxelShape
         }
 
         [SerializeField] public List<ShapeOperationsStruct> ShapeOperations = new List<ShapeOperationsStruct>();
-        [SerializeField] public Vector3 GridSize = new Vector3(2f, 2f, 2f);
+        [SerializeField] public Vector3 voxelSize = new Vector3(1f, 1f, 1f);
         [SerializeField] public Color Color = Color.green;
         [SerializeField, Range(0f, 1f)] public float Transparency = 1f;
 
@@ -66,7 +66,6 @@ namespace GraffitiEntertainment.VoxelShape
 
         void OnEnable()
         {
-            Debug.Log($"VoxelShapeComponent OnEnable called on {gameObject.name}");
             BuildSpriteRectCache();
             if (Application.isPlaying)
             {
@@ -83,12 +82,10 @@ namespace GraffitiEntertainment.VoxelShape
                 {
 #if UNITY_EDITOR
                     string assetPath = AssetDatabase.GetAssetPath(shape.image);
-                    Debug.Log($"Asset path for texture '{shape.image.name}': {assetPath}");
                     if (!string.IsNullOrEmpty(assetPath))
                     {
                         Object[] assets = AssetDatabase.LoadAllAssetsAtPath(assetPath);
                         Sprite[] sprites = assets.OfType<Sprite>().ToArray();
-                        Debug.Log($"Loaded {sprites.Length} sprites for texture '{shape.image.name}'");
                         var spriteRects = sprites.Select(s => new SpriteRectData
                         {
                             spriteName = s.name,
@@ -105,7 +102,6 @@ namespace GraffitiEntertainment.VoxelShape
 
         void Start()
         {
-            Debug.Log($"VoxelShapeComponent Start called on {gameObject.name}");
             SetupVoxelShapeUI();
             BuildSpriteRectCache();
             GenerateVoxels();
@@ -116,7 +112,6 @@ namespace GraffitiEntertainment.VoxelShape
             // Skip UI setup in Edit Mode
             if (!Application.isPlaying)
             {
-                Debug.Log("Skipping VoxelShapeUI setup in Edit Mode.");
                 return;
             }
 
@@ -124,12 +119,10 @@ namespace GraffitiEntertainment.VoxelShape
             spriteDropdown = GetComponentInChildren<TMP_Dropdown>();
             if (spriteDropdown == null)
             {
-                Debug.Log("No TMP_Dropdown found on this GameObject or its children. Skipping VoxelShapeUI setup.");
                 return;
             }
 
             voxelShapeUI = new VoxelShapeUI(this, spriteDropdown, shapeIndex);
-            Debug.Log("VoxelShapeUI instance created and set up.");
         }
 
         private void BuildSpriteRectCache()
@@ -151,7 +144,7 @@ namespace GraffitiEntertainment.VoxelShape
                 }
             }
         }
-
+        
         public void SetSpriteRectsAtRuntime(Texture2D texture, Dictionary<string, Rect> spriteRects)
         {
             runtimeSpriteRectCache[texture] = spriteRects;
@@ -181,7 +174,7 @@ namespace GraffitiEntertainment.VoxelShape
                     }
                 }
 
-                VoxelCells = VoxelShapeGenerator.GenerateShape(ShapeOperations[0].type, ShapeOperations[0].size, GridSize, ShapeOperations[0].rotation, image, ShapeOperations[0].spriteName, spriteRect);
+                VoxelCells = VoxelShapeGenerator.GenerateShape(ShapeOperations[0].type, ShapeOperations[0].size, voxelSize, ShapeOperations[0].rotation, image, ShapeOperations[0].spriteName, spriteRect);
 
                 for (int i = 1; i < ShapeOperations.Count; i++)
                 {
@@ -199,7 +192,7 @@ namespace GraffitiEntertainment.VoxelShape
                         }
                     }
 
-                    var cells = VoxelShapeGenerator.GenerateShape(ShapeOperations[i].type, ShapeOperations[i].size, GridSize, ShapeOperations[i].rotation, image, ShapeOperations[i].spriteName, spriteRect);
+                    var cells = VoxelShapeGenerator.GenerateShape(ShapeOperations[i].type, ShapeOperations[i].size, voxelSize, ShapeOperations[i].rotation, image, ShapeOperations[i].spriteName, spriteRect);
                     if (ShapeOperations[i].operation == OperationType.Add)
                     {
                         VoxelCells = VoxelShapeGenerator.AddVoxelCells(VoxelCells, cells, ShapeOperations[i].offset);
@@ -211,7 +204,8 @@ namespace GraffitiEntertainment.VoxelShape
                 }
             }
         }
-
+        
+        // In VoxelShapeComponent.cs - OnDrawGizmos method
         void OnDrawGizmos()
         {
             if (VoxelCells == null || VoxelCells.Count == 0)
@@ -220,10 +214,20 @@ namespace GraffitiEntertainment.VoxelShape
             }
 
             Gizmos.color = new Color(Color.r, Color.g, Color.b, Transparency);
+    
+            // Get minimum visible size (for tiny voxels)
+            float minSize = 0.1f;
+            Vector3 displaySize = new Vector3(
+                Mathf.Max(voxelSize.x, minSize),
+                Mathf.Max(voxelSize.y, minSize),
+                Mathf.Max(voxelSize.z, minSize)
+            );
+    
+            // Draw each voxel cell
             foreach (var cell in VoxelCells)
             {
                 Vector3 pos = transform.position + cell;
-                Gizmos.DrawCube(pos, GridSize * 0.9f);
+                Gizmos.DrawCube(pos, voxelSize);
             }
         }
 

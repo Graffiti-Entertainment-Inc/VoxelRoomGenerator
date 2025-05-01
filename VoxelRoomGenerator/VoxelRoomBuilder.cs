@@ -10,7 +10,8 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
     public class VoxelRoomBuilder : DungeonBuilder
     {
         [Header("Voxel Room Configuration")] 
-        public VoxelRoomConfig voxelRoomConfig = new VoxelRoomConfig();
+        [HideInInspector]
+        public VoxelRoomConfig voxelRoomConfig;
 
         // Reference to parent generator (set in initialize)
         private VoxelRoomGenerator _roomGenerator;
@@ -33,6 +34,23 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
         {
             base.BuildDungeon(config, model);
 
+            // Check if the passed config is a VoxelRoomConfig
+            VoxelRoomConfig roomConfig = config as VoxelRoomConfig;
+    
+            // If we don't have a config yet and the passed config is compatible, use it
+            if (voxelRoomConfig == null) 
+            {
+                if (roomConfig != null)
+                {
+                    voxelRoomConfig = roomConfig;
+                }
+                else
+                {
+                    Debug.LogError("VoxelRoomBuilder requires a VoxelRoomConfig but none was provided.");
+                    return;
+                }
+            }
+
             if (_shapeComponent == null)
             {
                 Debug.LogError("VoxelShapeComponent is required but not found.");
@@ -48,7 +66,7 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
                 return;
             }
 
-            var generatedMarkers = VoxelMarkerGenerator.GenerateMarkers(voxelCells, voxelRoomConfig.GridSize);
+            var generatedMarkers = VoxelMarkerGenerator.GenerateMarkers(voxelCells, voxelRoomConfig.voxelSize);
 
             // Emit markers to the builder's marker list
             foreach (var marker in generatedMarkers)

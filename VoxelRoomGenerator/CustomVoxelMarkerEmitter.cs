@@ -9,12 +9,12 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
         public static void EmitMarkers(
             List<Marker> markers,
             LevelMarkerList markerList,
-            Vector3 gridSize,
+            Vector3 voxelSize,
             Vector3 roomOffset)
         {
             foreach (var marker in markers)
             {
-                Vector3 worldPos = Vector3.Scale(marker.position + roomOffset, gridSize);
+                Vector3 worldPos = Vector3.Scale(marker.position + roomOffset, voxelSize);
 
                 var socket = new PropSocket
                 {

@@ -12,7 +12,7 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
         [Header("Voxel Room Specific Settings")]
 
         [Tooltip("Size of each voxel in the room grid.")]
-        public Vector3 GridSize = new Vector3(4, 2, 4);
+        public Vector3 voxelSize = new Vector3(4, 2, 4);
 
         [Tooltip("Offset of the generated room within the dungeon grid.")]
         public Vector3Int RoomOffset = Vector3Int.zero;
@@ -28,9 +28,9 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
         /// </summary>
         public override bool HasValidConfig(ref string errorMessage)
         {
-            if (GridSize.x <= 0 || GridSize.y <= 0 || GridSize.z <= 0)
+            if (voxelSize.x <= 0 || voxelSize.y <= 0 || voxelSize.z <= 0)
             {
-                errorMessage = "GridSize dimensions must all be positive non-zero values.";
+                errorMessage = "voxelSize dimensions must all be positive non-zero values.";
                 return false;
             }
 

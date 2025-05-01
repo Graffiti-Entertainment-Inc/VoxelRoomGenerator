@@ -9,7 +9,7 @@ namespace GraffitiEntertainment.VoxelRoomGenerator.Editor
     public class VoxelRoomGeneratorEditor : UnityEditor.Editor
     {
         // Serialized properties for room configuration
-        private SerializedProperty _gridSizeProperty;
+        private SerializedProperty _voxelSizeProperty;
         private SerializedProperty _roomOffsetProperty;
         private SerializedProperty _generateClutterProperty;
         private SerializedProperty _clutterSeedProperty;
@@ -51,7 +51,7 @@ namespace GraffitiEntertainment.VoxelRoomGenerator.Editor
         private void OnEnable()
         {
             // Get serialized properties for room configuration
-            _gridSizeProperty = serializedObject.FindProperty("_gridSize");
+            _voxelSizeProperty = serializedObject.FindProperty("_voxelSize");
             _roomOffsetProperty = serializedObject.FindProperty("_roomOffset");
             _generateClutterProperty = serializedObject.FindProperty("_generateClutter");
             _clutterSeedProperty = serializedObject.FindProperty("_clutterSeed");
@@ -81,7 +81,7 @@ namespace GraffitiEntertainment.VoxelRoomGenerator.Editor
         private void UpdateShapeComponent()
         {
             // Find the VoxelShapeComponent (it's created in the generator's hidden component container)
-            _shapeComponent = _generator.GetComponentInChildren<VoxelShapeComponent>();
+            _shapeComponent = _generator.ShapeComponent;
             
             if (_shapeComponent != null)
             {
@@ -115,7 +115,7 @@ namespace GraffitiEntertainment.VoxelRoomGenerator.Editor
             {
                 EditorGUI.indentLevel++;
                 
-                EditorGUILayout.PropertyField(_gridSizeProperty, new GUIContent("Grid Size", 
+                EditorGUILayout.PropertyField(_voxelSizeProperty, new GUIContent("Voxel Size", 
                     "Size of each voxel in the room grid."));
                 
                 EditorGUILayout.PropertyField(_roomOffsetProperty, new GUIContent("Room Offset", 
@@ -232,6 +232,8 @@ namespace GraffitiEntertainment.VoxelRoomGenerator.Editor
                         // Add a new shape operation
                         _shapeOperationsProperty.arraySize++;
                         _shapeSerializedObject.ApplyModifiedProperties();
+                        
+                        _generator.ShapeOperations = _shapeComponent.ShapeOperations;
                         
                         // Initialize the new operation with default values
                         int index = _shapeOperationsProperty.arraySize - 1;

@@ -13,7 +13,7 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
         // Room Configuration (direct variables instead of reference)
         [SerializeField] 
         [Tooltip("Size of each voxel in the room grid.")]
-        private Vector3 _gridSize = new Vector3(4, 2, 4);
+        private Vector3 _voxelSize = new Vector3(1, 1, 1);
         
         [SerializeField] 
         [Tooltip("Offset of the generated room within the dungeon grid.")]
@@ -56,7 +56,14 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
 
         // Hidden implementation components
         private GameObject _hiddenComponentsContainer;
+        
+        [SerializeField]
+        [Tooltip("Shape operations for generating the room geometry.")]
+        private List<VoxelShapeComponent.ShapeOperationsStruct> _shapeOperations = new List<VoxelShapeComponent.ShapeOperationsStruct>();
+
         private VoxelShapeComponent _shapeComponent;
+        // Add a public accessor to the shape component
+        public VoxelShapeComponent ShapeComponent => _shapeComponent;
         private Dungeon _dungeon;
         private VoxelRoomBuilder _roomBuilder;
         private VoxelRoomConfig _roomConfig;
@@ -64,10 +71,10 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
         private List<Marker> _generatedMarkers = new List<Marker>();
 
         // Public accessors for configuration
-        public Vector3 GridSize
+        public Vector3 voxelSize
         {
-            get => _gridSize;
-            set => _gridSize = value;
+            get => _voxelSize;
+            set => _voxelSize = value;
         }
         
         public Vector3Int RoomOffset
@@ -98,6 +105,13 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
         {
             get => _roomTheme;
             set => _roomTheme = value;
+        }
+        
+// Add accessor for shape operations
+        public List<VoxelShapeComponent.ShapeOperationsStruct> ShapeOperations
+        {
+            get => _shapeOperations;
+            set => _shapeOperations = value;
         }
         
         // Destination GameObject accessor
@@ -160,7 +174,12 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
             
             if (_shapeComponent != null)
             {
-                _shapeComponent.GridSize = _gridSize;
+                _shapeComponent.voxelSize = _voxelSize;
+                // Direct assignment without unnecessary check
+                if (_shapeComponent.ShapeOperations != _shapeOperations)
+                {
+                    _shapeOperations = _shapeComponent.ShapeOperations;
+                }
             }
             
             // Update async settings
@@ -194,7 +213,7 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
         {
             Regenerate();
         }
-
+        
         public override void OnDungeonMarkersEmitted(Dungeon dungeon, DungeonModel model, LevelMarkerList markerList)
         {
             if (_generatedMarkers == null || _generatedMarkers.Count == 0)
@@ -206,12 +225,13 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
             CustomVoxelMarkerEmitter.EmitMarkers(
                 _generatedMarkers,
                 markerList,
-                _gridSize,
+                _voxelSize,
                 _roomOffset
             );
         }
 
         // Public methods for room generation
+        // In VoxelRoomGenerator.cs - Regenerate method
         public void Regenerate()
         {
             if (_shapeComponent == null)
@@ -220,20 +240,29 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
             }
 
             // Update shape component with current settings
-            _shapeComponent.GridSize = _gridSize;
+            _shapeComponent.voxelSize = _voxelSize;
+            // Direct assignment without unnecessary check
+            _shapeComponent.ShapeOperations = _shapeOperations;
+            
+            // Generate the voxel cells
             _shapeComponent.GenerateVoxels();
 
             var voxelCells = _shapeComponent.VoxelCells;
             if (voxelCells == null || voxelCells.Count == 0)
             {
-                Debug.LogWarning("Voxel cell list is empty.");
                 return;
             }
 
+            // Generate markers from the voxels
             _generatedMarkers = VoxelMarkerGenerator.GenerateMarkers(
                 voxelCells, 
-                _gridSize
+                _voxelSize
             );
+    
+            // Force the scene view to update
+#if UNITY_EDITOR
+            UnityEditor.SceneView.RepaintAll();
+#endif
         }
 
         public void BuildRoom()
@@ -308,28 +337,22 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
             
             // Create VoxelShapeComponent
             _shapeComponent = _hiddenComponentsContainer.AddComponent<VoxelShapeComponent>();
-            _shapeComponent.GridSize = _gridSize;
+            _shapeComponent.voxelSize = _voxelSize;
+            // Direct assignment without unnecessary check
+            _shapeComponent.ShapeOperations = _shapeOperations;
             
             // Create and configure the room config
             _roomConfig = _hiddenComponentsContainer.AddComponent<VoxelRoomConfig>();
             UpdateRoomConfig();
             
-            // Create Dungeon and required components
-            _dungeon = _hiddenComponentsContainer.AddComponent<Dungeon>();
+            // Add VoxelRoomModel (extends DungeonModel)
+            _hiddenComponentsContainer.AddComponent<VoxelRoomModel>();
             
             // Add scene provider to the hidden container
-            var localSceneProvider = _hiddenComponentsContainer.AddComponent<PooledDungeonSceneProvider>();
+            _hiddenComponentsContainer.AddComponent<PooledDungeonSceneProvider>();
             
-            // Set up the theme if available
-            if (_roomTheme != null)
-            {
-                _dungeon.dungeonThemes = new List<Graph> { _roomTheme };
-            }
-            else
-            {
-                // Initialize with empty list to avoid null reference
-                _dungeon.dungeonThemes = new List<Graph>();
-            }
+            // Add VoxelRoomQuery (extends DungeonQuery)
+            _hiddenComponentsContainer.AddComponent<VoxelRoomQuery>();
             
             // Create and configure the room builder
             _roomBuilder = _hiddenComponentsContainer.AddComponent<VoxelRoomBuilder>();
@@ -341,15 +364,32 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
             _roomBuilder.maxBuildTimePerFrame = _maxBuildTimePerFrame;
             _roomBuilder.asyncBuildStartPosition = transform;
             
+            // Create Dungeon and required components
+            _dungeon = _hiddenComponentsContainer.AddComponent<Dungeon>();
+
+            // Set up the theme if available
+            if (_roomTheme != null)
+            {
+                _dungeon.dungeonThemes = new List<Graph> { _roomTheme };
+            }
+            else
+            {
+                // Initialize with empty list to avoid null reference
+                _dungeon.dungeonThemes = new List<Graph>();
+            }
+            
             // Set the seed
             _dungeon.SetSeed((int)_seed);
         }
         
         private void UpdateRoomConfig()
         {
-            if (_roomConfig == null) return;
-            
-            _roomConfig.GridSize = _gridSize;
+            if (_roomConfig == null)
+            {
+                return;
+            }
+
+            _roomConfig.voxelSize = _voxelSize;
             _roomConfig.RoomOffset = _roomOffset;
             _roomConfig.GenerateClutter = _generateClutter;
             _roomConfig.ClutterSeed = _clutterSeed;
@@ -395,7 +435,16 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
                 Gizmos.color = Color.cyan;
                 foreach (var marker in _generatedMarkers)
                 {
-                    Gizmos.DrawWireCube(transform.position + marker.position, _gridSize * 0.9f);
+                    // Make sure voxels are visible at small sizes
+                    float minSize = 0.1f;
+                    Vector3 displaySize = new Vector3(
+                        Mathf.Max(_voxelSize.x, minSize),
+                        Mathf.Max(_voxelSize.y, minSize),
+                        Mathf.Max(_voxelSize.z, minSize)
+                    );
+            
+                    Vector3 pos = transform.position + marker.position;
+                    Gizmos.DrawWireCube(transform.position + marker.position, displaySize * 0.9f);
                 }
             }
             
@@ -403,10 +452,18 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
             if (_shapeComponent != null && _shapeComponent.VoxelCells != null && _shapeComponent.VoxelCells.Count > 0)
             {
                 Gizmos.color = new Color(_shapeComponent.Color.r, _shapeComponent.Color.g, _shapeComponent.Color.b, _shapeComponent.Transparency);
+                
+                float minSize = 0.1f;
+                Vector3 displaySize = new Vector3(
+                    Mathf.Max(_voxelSize.x, minSize),
+                    Mathf.Max(_voxelSize.y, minSize),
+                    Mathf.Max(_voxelSize.z, minSize)
+                );
+                
                 foreach (var cell in _shapeComponent.VoxelCells)
                 {
                     Vector3 pos = transform.position + cell;
-                    Gizmos.DrawCube(pos, _gridSize * 0.9f);
+                    Gizmos.DrawCube(pos, displaySize * 0.9f);
                 }
             }
             else
@@ -420,7 +477,9 @@ namespace GraffitiEntertainment.VoxelRoomGenerator
                 // Force regenerate if needed
                 if (_shapeComponent != null && (_shapeComponent.VoxelCells == null || _shapeComponent.VoxelCells.Count == 0))
                 {
-                    _shapeComponent.GridSize = _gridSize;
+                    _shapeComponent.voxelSize = _voxelSize;
+                    // Direct assignment without unnecessary check
+                    _shapeComponent.ShapeOperations = _shapeOperations;
                     _shapeComponent.GenerateVoxels();
                 }
             }
